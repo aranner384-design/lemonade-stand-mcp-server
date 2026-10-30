@@ -5,10 +5,15 @@
   "main": "server.js",
   "type": "module",
   "scripts": {
-    "start": "node server.js"
+    "start": "node server.js",
+    "start:v2": "node server-v2.js",
+    "test": "node --test src/*.test.js"
   },
   "dependencies": {
     "@modelcontextprotocol/sdk": "^1.10.1",
     "uuid": "^11.1.0"
+  },
+  "engines": {
+    "node": ">=22.13.0"
   }
 }
