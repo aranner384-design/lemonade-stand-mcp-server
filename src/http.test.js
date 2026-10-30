@@ -71,6 +71,13 @@ test('real Streamable HTTP MCP requests survive an HTTP process restart', { time
   let client;
   try {
     child = await startService(port, database);
+    // An untrusted website's Origin must not reach even a read-only endpoint.
+    const crossSite = await fetch('http://127.0.0.1:' + port + '/mcp', {
+      method: 'POST',
+      headers: { Origin: 'https://malicious.example', 'Content-Type': 'application/json' },
+      body: JSON.stringify({ jsonrpc: '2.0', id: 1, method: 'tools/list' })
+    });
+    assert.equal(crossSite.status, 403);
     client = await connect(port);
     const listing = await client.listTools();
     const names = listing.tools.map(t => t.name);
@@ -84,6 +91,14 @@ test('real Streamable HTTP MCP requests survive an HTTP process restart', { time
       cups: 10, lemons: 4, sugar: 4, ice: 15, operationId: 'http-buy-one'
     });
     assert.equal(bought.gameState.money, 18.48);
+    // Test raw tool dispatch validation rather than trusting the advertised schema.
+    const injected = await client.callTool({
+      name: 'buy_supplies',
+      arguments: { operationId: 'inject-1', cups: 1, bananas: 999 }
+    });
+    assert.equal(injected.isError, true);
+    const afterInvalid = await tool(client, 'get_game_state');
+    assert.equal(afterInvalid.gameState.money, 18.48);
     const replay = await tool(client, 'buy_supplies', {
       cups: 10, lemons: 4, sugar: 4, ice: 15, operationId: 'http-buy-one'
     });
