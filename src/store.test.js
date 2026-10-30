@@ -42,7 +42,8 @@ test('new game archives previous save without deleting it', () => {
   const db = new GameStore();
   try {
     db.startOrResume('old', () => newGame(zero));
-    db.startFresh('new', () => newGame(zero));
+    db.startFresh('new', () => newGame(zero), 'new-1');
+    assert.equal(db.startFresh('different', () => { throw Error('should not create'); }, 'new-1').gameId, 'new');
     assert.equal(db.getActive().gameId, 'new');
     assert.equal(db.get('old').gameState.day, 1);
     assert.equal(db.listGames().length, 2);
