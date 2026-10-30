@@ -55,6 +55,18 @@ Write tools require a stable `operationId` provided by the client, so retries ca
 
 **Do not publish this service on an unrestricted Internet tunnel.**
 
+The V2 runtime rejects requests that include an unapproved HTTP `Origin` header (DNS rebinding defense). It also checks tool arguments server-side instead of trusting the advertised JSON schema. These controls reduce accidental/browser-origin abuse but **do not authenticate a user**.
+
+`MCP_ALLOWED_ORIGINS` is an optional comma-separated exact origin allowlist for trusted browser clients. Leave it empty for server-to-server ChatGPT clients (which usually omit `Origin`). Do not add `*`. An absent `Origin` must never be treated as proof of identity.
+
+### Preferred private connection
+
+If the account has access, prefer **OpenAI Secure MCP Tunnel** instead of exposing a public Cloudflare hostname. It routes requests through an OpenAI-managed private tunnel to the HTTP MCP listener on Lighthouse. This needs a Platform tunnel ID, a restricted tunnel runtime key, the `tunnel-client` process on Lighthouse, and the correct ChatGPT workspace linkage. First verify account/workspace eligibility; do not assume it is already configured. See [Secure MCP Tunnel official guide](https://developers.openai.com/api/docs/guides/secure-mcp-tunnels).
+
+### If reusing Cloudflare Tunnel
+
+Use OAuth 2.1 (with ChatGPT-supported authorization discovery) or another **actually tested and compatible** identity-aware policy at the public edge; do not rely on an obscure URL, a static bearer token that ChatGPT cannot send, or a dashboard setting of "No authentication" alone. See [ChatGPT plugin authentication](https://developers.openai.com/plugins/build/auth). Confirm the exact auth flow and test unauthorized access before any real game save is exposed.
+
 This first V2 draft has no authentication layer or player identity. It is designed for one private game owner, not multiple untrusted users. A Cloudflare hostname routed to it without an effective access policy would expose game contents and modification tools to any visitor who discovers the URL.
 
 Before exposing via Lighthouse Tunnel:
