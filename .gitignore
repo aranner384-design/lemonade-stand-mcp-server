@@ -134,3 +134,10 @@ dist
 .yarn/build-state.yml
 .yarn/install-state.gz
 .pnp.*
+
+# Lemonade V2 persistent data and SQLite sidecars
+/data/
+*.sqlite
+*.sqlite-wal
+*.sqlite-shm
+*.sqlite-journal
