@@ -1,0 +1,23 @@
+name: Lemonade V2 tests
+on:
+  push:
+    branches: [feat/lemonade-v2]
+  pull_request:
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  node-test:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        node: ['22', '24']
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ matrix.node }}
+      - run: npm install --ignore-scripts
+      - run: npm test
+      - name: Verify V2 server can import SDK
+        run: node --input-type=module -e "import('@modelcontextprotocol/sdk/server/streamableHttp.js').then(m => { if (!m.StreamableHTTPServerTransport) process.exit(1); })"
