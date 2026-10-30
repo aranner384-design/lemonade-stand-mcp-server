@@ -31,6 +31,11 @@ export class GameStore {
         created_at TEXT NOT NULL,
         PRIMARY KEY (game_id, operation_id)
       );
+      CREATE TABLE IF NOT EXISTS new_game_requests (
+        operation_id TEXT PRIMARY KEY,
+        game_id TEXT NOT NULL REFERENCES games(game_id),
+        created_at TEXT NOT NULL
+      );
       CREATE TABLE IF NOT EXISTS settings (
         key TEXT PRIMARY KEY,
         value TEXT NOT NULL
@@ -93,8 +98,15 @@ export class GameStore {
   }
 
   // A new game never deletes old saves. Call only after explicit user confirmation.
-  startFresh(gameId, createState) {
+  startFresh(gameId, createState, operationId) {
+    if (typeof operationId !== 'string' || !operationId || operationId.length > 128) {
+      throw new Error('operationId is required for new_game');
+    }
     return this.transaction(() => {
+      const prior = this.db.prepare(
+        'SELECT game_id FROM new_game_requests WHERE operation_id = ?'
+      ).get(operationId);
+      if (prior) return this.get(prior.game_id);
       const now = new Date().toISOString();
       this.db.prepare(
         'UPDATE games SET is_active = 0, archived_at = ?, updated_at = ? WHERE is_active = 1'
@@ -103,6 +115,9 @@ export class GameStore {
       this.db.prepare(
         'INSERT INTO games (game_id, state_json, is_active, created_at, updated_at) VALUES (?, ?, 1, ?, ?)'
       ).run(gameId, JSON.stringify(state), now, now);
+      this.db.prepare(
+        'INSERT INTO new_game_requests (operation_id, game_id, created_at) VALUES (?, ?, ?)'
+      ).run(operationId, gameId, now);
       return this.get(gameId);
     });
   }
