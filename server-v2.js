@@ -84,10 +84,57 @@ function requiredGameId(args) {
   return id;
 }
 
+// Do not assume a low-level MCP Server validates each tool's JSON schema.
+// This is the runtime boundary for every remote tool invocation.
+const toolArgKeys = {
+  start_game: [],
+  get_game_state: ['gameId'],
+  resume_game: [],
+  new_game: ['confirm', 'operationId'],
+  buy_supplies: ['gameId', 'operationId', 'cups', 'lemons', 'sugar', 'ice'],
+  set_price: ['gameId', 'operationId', 'price'],
+  sell_lemonade: ['gameId', 'operationId'],
+  next_day: ['gameId', 'operationId']
+};
+
+function validateToolArgs(name, args) {
+  if (!args || typeof args !== 'object' || Array.isArray(args)) {
+    throw new Error('Tool arguments must be a JSON object');
+  }
+  const allowed = toolArgKeys[name];
+  if (!allowed) return;
+  for (const key of Object.keys(args)) {
+    if (!allowed.includes(key)) throw new Error('Unknown argument: ' + key);
+  }
+  if (args.gameId !== undefined &&
+      (typeof args.gameId !== 'string' || args.gameId.length === 0 || args.gameId.length > 128)) {
+    throw new Error('Invalid gameId');
+  }
+  if (allowed.includes('operationId') &&
+      (typeof args.operationId !== 'string' || !args.operationId.trim() || args.operationId.length > 128)) {
+    throw new Error('operationId must be a nonempty string, up to 128 characters');
+  }
+  if (name === 'new_game' && args.confirm !== true) {
+    throw new Error('Explicit confirmation is required.');
+  }
+  if (name === 'set_price' && typeof args.price !== 'number') {
+    throw new Error('price must be a number');
+  }
+  if (name === 'buy_supplies') {
+    for (const key of ['cups', 'lemons', 'sugar', 'ice']) {
+      if (args[key] !== undefined &&
+          (typeof args[key] !== 'number' || !Number.isSafeInteger(args[key]) || args[key] < 0)) {
+        throw new Error(key + ' must be a nonnegative integer');
+      }
+    }
+  }
+}
+
 function callTool(name, args = {}) {
   if (!tools.some(t => t.name === name)) {
     throw new McpError(ErrorCode.MethodNotFound, 'Unknown tool: ' + name);
   }
+  validateToolArgs(name, args);
   switch (name) {
     case 'start_game':
       return store.startOrResume(randomUUID(), newGame);
@@ -161,7 +208,18 @@ if (!Number.isSafeInteger(PORT) || PORT < 1 || PORT > 65535 ||
   throw new Error('Invalid PORT or MCP_PATH configuration');
 }
 
+// Origin validation is required for Streamable HTTP (DNS rebinding protection).
+// It is not user authentication. Server-to-server clients usually omit Origin.
+const permittedOrigins = new Set((process.env.MCP_ALLOWED_ORIGINS ?? '')
+  .split(',').map(value => value.trim()).filter(Boolean));
+
 const http = createServer(async (req, res) => {
+  const origin = req.headers.origin;
+  if (origin !== undefined && !permittedOrigins.has(origin)) {
+    res.writeHead(403, { 'content-type': 'application/json' });
+    res.end(JSON.stringify({ error: 'Forbidden Origin' }));
+    return;
+  }
   if (req.url === '/health' && req.method === 'GET') {
     res.writeHead(200, { 'content-type': 'application/json' });
     res.end(JSON.stringify({ ok: true }));
