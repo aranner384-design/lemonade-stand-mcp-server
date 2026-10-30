@@ -49,7 +49,7 @@ const tools = [
   {
     name: 'new_game',
     description: 'Create a brand-new 14-day game and archive the current game. Only use after the player explicitly asks to start over.',
-    inputSchema: schema({ confirm: { type: 'boolean', const: true } }, ['confirm'])
+    inputSchema: schema({ confirm: { type: 'boolean', const: true }, operationId }, ['confirm', 'operationId'])
   },
   {
     name: 'buy_supplies',
@@ -98,7 +98,7 @@ function callTool(name, args = {}) {
         { message: 'Game not found.' };
     case 'new_game':
       if (args.confirm !== true) throw new Error('Explicit confirmation is required.');
-      return store.startFresh(randomUUID(), newGame);
+      return store.startFresh(randomUUID(), newGame, args.operationId);
     case 'buy_supplies': {
       const quantities = {};
       for (const key of ['cups', 'lemons', 'sugar', 'ice']) {
