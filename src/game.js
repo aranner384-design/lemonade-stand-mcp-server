@@ -15,7 +15,7 @@ function requireStage(state, allowed) {
 
 function requireMoney(value, label, maxCents = Number.MAX_SAFE_INTEGER) {
   if (typeof value !== 'number' || !Number.isFinite(value) ||
-      value <= 0 || !Number.isInteger(value * 100) ||
+      value <= 0 || Math.abs(value * 100 - Math.round(value * 100)) > 1e-7 ||
       cents(value) > maxCents) {
     throw new Error(label + ' must be a positive dollar amount with at most two decimals');
   }
